@@ -41,8 +41,8 @@ else:
 model_mode = ModelMode.train
 
 # hyper-parameters
-batch_size = 32
-num_workers = 4
+batch_size = 64
+num_workers = 8
 num_epochs = 200
 lr_gen = 0.0004
 lr_dis = 0.0001
@@ -131,11 +131,22 @@ if __name__ == "__main__":
 
     # training mode selected
     if model_mode == ModelMode.train:
+        # defines dataset and dataloader
         train_dataset = ExposureDataset(
             os.path.join(train_dir, "INPUT_IMAGES/"),
             os.path.join(train_dir, "GT_IMAGES/"),
-            transform_input=None,
-            transform_truth=None
+            transform_input=transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.Resize(256),
+                transforms.CenterCrop(256),
+                transforms.ToTensor()
+            ]),
+            transform_truth=transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.Resize(256),
+                transforms.CenterCrop(256),
+                transforms.ToTensor()
+            ])
         )
         train_loader = DataLoader(
             train_dataset,
