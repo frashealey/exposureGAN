@@ -6,18 +6,19 @@ Code by Fras Healey
 12GB VRAM GPU (RTX 4070), 32GB DRAM Windows 11 PC)
 """
 
+import os
 from enum import Enum
-import numpy as np
-from skimage import io
 import torch
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch import nn
 import torchvision.transforms as transforms
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
+
+from dataset import ExposureDataset
 
 
 class ModelMode(Enum):
@@ -47,6 +48,14 @@ recon_loss = nn.L1Loss()
 recon_lambda = 100
 
 # file (dataset, results) directories
-train_dir = "./dataset/training"
-test_dir = "./dataset/testing"    # (expert c used)
-pretrain_dir = "./pretrains"
+train_dir = "./dataset/training/"
+test_dir = "./dataset/testing/"    # (expert c used)
+pretrain_dir = "./pretrains/"
+
+if __name__ == "__main__":
+    train_dataset = ExposureDataset(
+        os.path.join(train_dir, "INPUT_IMAGES/"),
+        os.path.join(train_dir, "GT_IMAGES/"),
+        transform_input=None,
+        transform_truth=None
+    )
