@@ -52,6 +52,37 @@ class UpConv(nn.Module):
         return out
 
 
+class ResizeUpConv(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, norm=True, batch=True, activation=True, leaky=False, dropout=False):
+        super(ResizeUpConv, self).__init__()
+        self.activation = activation
+        self.norm = norm
+        self.dropout = dropout
+
+        # defaults nearest neighbour
+        self.up = nn.Upsample(scale_factor=2)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, padding_mode="reflect")
+
+        if self.norm:
+            self.norm_op = nn.BatchNorm2d(out_channels) if batch else nn.InstanceNorm2d(out_channels, affine=False)
+        if self.activation:
+            self.activation_op = nn.LeakyReLU(0.2, inplace=True) if leaky else nn.ReLU(inplace=True)
+        if self.dropout:
+            self.dropout_op = nn.Dropout2d(0.5)
+
+    def forward(self, x):
+        out = self.up(x)
+        out = self.conv(out)
+        if self.norm:
+            out = self.norm_op(out)
+        if self.activation:
+            out = self.activation_op(out)
+        if self.dropout:
+            out = self.dropout_op(out)
+
+        return out
+
+
 class ResBlock(nn.Module):
     expansion = 1
 

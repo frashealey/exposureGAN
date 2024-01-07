@@ -9,7 +9,10 @@ Code by Fras Healey
 import os
 import re
 from enum import Enum
+import tkinter as tk
+from tkinter import filedialog
 from natsort import natsorted
+from skimage import io
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -41,11 +44,11 @@ else:
 model_mode = ModelMode.train
 
 # hyper-parameters
-batch_size = 64
-num_workers = 8
+batch_size = 16
+num_workers = 4
 num_epochs = 200
-lr_gen = 0.0004
-lr_dis = 0.0001
+lr_gen = 0.0002
+lr_dis = 0.0002
 adv_loss = nn.BCEWithLogitsLoss()
 recon_loss = nn.L1Loss()
 recon_lambda = 100
@@ -112,6 +115,30 @@ def trainer(gen, dis, train_loader, gen_optim, dis_optim, gen_scaler, dis_scaler
     # returns generator and discriminator losses
     return loss_gen, loss_dis
 
+def evaluator(gen, image_path, transform, denorm):
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    gen.eval()
+
+    # read and transform image
+    # (adding the batch dimension artifically using 'unsqueeze')
+    image = transform(io.imread(image_path)).to(device).unsqueeze(0)
+
+    # generator creates fake image
+    with torch.no_grad():
+        # generate fake image
+        fake_image = gen(image)
+
+    # input
+    ax1.imshow(denorm(image).cpu()[0].permute(1, 2, 0))
+    ax1.axis("off")
+    ax1.set_title("Input")
+    # result
+    ax2.imshow(denorm(fake_image).cpu()[0].permute(1, 2, 0))
+    ax2.axis("off")
+    ax2.set_title("Result")
+    fig.tight_layout()
+    plt.show()
+
 if __name__ == "__main__":
     # defines objects for generator and discriminator and inits weights
     gen = Generator().to(device)
@@ -128,6 +155,8 @@ if __name__ == "__main__":
             )
         )
     )
+
+    print(f"Initalised models on device: {device}")
 
     # training mode selected
     if model_mode == ModelMode.train:
@@ -213,3 +242,47 @@ if __name__ == "__main__":
                 "optimizer_state_dict": dis_optim.state_dict(),
                 "loss": loss_dis
             }, f"{pretrain_dir}/{epoch}_dis.pth")
+
+    # evaluation mode selected
+    elif model_mode == ModelMode.evaluate:
+        # checks model weights exist
+        # (only need to check for generator)
+        if len(pretrains) >= 1 and "gen.pth" in pretrains[-1]:
+            # loads generator from saved state dictionaries
+            gen_checkpoint = torch.load(
+                os.path.join(
+                    pretrain_dir,
+                    pretrains[-1]
+                )
+            )
+            gen.load_state_dict(gen_checkpoint["model_state_dict"])
+            gen_optim.load_state_dict(gen_checkpoint["optimizer_state_dict"])
+
+            # file prompt
+            root = tk.Tk()
+            # root.withdraw() doesn't work, so using this hacky workaround 
+            root.attributes("-topmost", True, "-alpha", 0)
+            selected_image = filedialog.askopenfilename(
+                initialdir="./Data/derain/ALIGNED_PAIRS_TEST/REAL_DROPLETS",
+                filetypes=[("JPG/JPEG files", ".jpg .jpeg")],
+                title="Select image"
+            )
+            root.destroy()
+
+            # file is selected
+            if len(selected_image) > 0:
+                evaluator(
+                    gen,
+                    selected_image,
+                    transforms.Compose([
+                        transforms.ToPILImage(),
+                        transforms.Resize(256),
+                        transforms.CenterCrop(256),
+                        transforms.ToTensor()
+                    ]),
+                    transforms.Compose([
+                    ])
+                )
+
+        else:
+            print("No pretrained model found - please ensure pretrain_dir is assigned correctly")
