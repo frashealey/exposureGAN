@@ -2,8 +2,8 @@
 Exposure Correction GAN
 Code by Fras Healey
 
-(all training and testing completed on 12-thread CPU (Ryzen 5 7600),
-12GB VRAM GPU (RTX 4070), 32GB DRAM Windows 11 PC)
+(all training and testing completed on 6 core 12-thread CPU,
+(Ryzen 5 7600) 12GB VRAM GPU (RTX 4070), 32GB DRAM Windows 11 PC)
 """
 
 import os
@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
 
-from dataset import ExposureDataset
+from dataset import ExposureDataset, ExposureDatasetGPU
 from models import Generator, Discriminator
 
 
@@ -45,9 +45,9 @@ else:
     device = torch.device("cpu")
 
 # hyper-parameters
-batch_size = 16
-num_workers = 4
-num_epochs = 200
+batch_size = 64
+num_workers = 6
+num_epochs = 100
 lr_gen = 0.0002
 lr_dis = 0.0002
 adv_loss = nn.BCEWithLogitsLoss()
@@ -76,8 +76,8 @@ def trainer(gen, dis, train_loader, gen_optim, dis_optim, gen_scaler, dis_scaler
 
     # iterates through dataloader
     for i, (x, y) in enumerate(looper):
-        x = x.to(device)
-        y = y.to(device)
+        # x = x.to(device)
+        # y = y.to(device)
 
         # trains discriminator
         dis_optim.zero_grad()
@@ -214,7 +214,8 @@ if __name__ == "__main__":
     # training mode selected
     if model_mode == ModelMode.train:
         # defines dataset and dataloader
-        train_dataset = ExposureDataset(
+        print("Loading inputs/truths into VRAM:")
+        train_dataset = ExposureDatasetGPU(
             os.path.join(train_dir, "INPUT_IMAGES/"),
             os.path.join(train_dir, "GT_IMAGES/"),
             transform_input=transforms.Compose([
@@ -230,12 +231,15 @@ if __name__ == "__main__":
                 transforms.ToTensor()
             ])
         )
+        train_dataset = train_dataset.to(device)
+        print(train_dataset.device)
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
             num_workers=num_workers,
             shuffle=False,
-            pin_memory=True
+            pin_memory=True,
+            persistent_workers=True
         )
 
         # defines gradient scalers (prevents gradient values getting flushed to 0)

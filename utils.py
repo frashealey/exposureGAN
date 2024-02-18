@@ -7,7 +7,8 @@ class DownConv(nn.Module):
         self.activation = activation
         self.norm = norm
 
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, padding_mode="reflect")
+        # don't need bias if immediately followed by a batchnorm
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, padding_mode="reflect", bias=True if batch else False)
 
         if self.norm:
             self.norm_op = nn.BatchNorm2d(out_channels) if batch else nn.InstanceNorm2d(out_channels, affine=False)
