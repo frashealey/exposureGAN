@@ -13,18 +13,18 @@ import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 from natsort import natsorted
-from skimage import io
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch import nn
 import torchvision.transforms as transforms
+from torchvision.io import read_image
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
 
-from dataset import ExposureDataset, ExposureDatasetGPU
+from dataset import ExposureDataset
 from models import Generator, Discriminator
 
 
@@ -76,8 +76,8 @@ def trainer(gen, dis, train_loader, gen_optim, dis_optim, gen_scaler, dis_scaler
 
     # iterates through dataloader
     for i, (x, y) in enumerate(looper):
-        # x = x.to(device)
-        # y = y.to(device)
+        x = x.to(device)
+        y = y.to(device)
 
         # trains discriminator
         dis_optim.zero_grad()
@@ -174,7 +174,7 @@ def evaluator(gen, image_path, transform, denorm):
 
     # read and transform image
     # (adding the batch dimension artifically using 'unsqueeze')
-    image = transform(io.imread(image_path)).to(device).unsqueeze(0)
+    image = transform(read_image(image_path)).to(device).unsqueeze(0)
 
     # generator creates fake image
     with torch.no_grad():
@@ -214,8 +214,7 @@ if __name__ == "__main__":
     # training mode selected
     if model_mode == ModelMode.train:
         # defines dataset and dataloader
-        print("Loading inputs/truths into VRAM:")
-        train_dataset = ExposureDatasetGPU(
+        train_dataset = ExposureDataset(
             os.path.join(train_dir, "INPUT_IMAGES/"),
             os.path.join(train_dir, "GT_IMAGES/"),
             transform_input=transforms.Compose([
@@ -231,8 +230,6 @@ if __name__ == "__main__":
                 transforms.ToTensor()
             ])
         )
-        train_dataset = train_dataset.to(device)
-        print(train_dataset.device)
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
@@ -311,6 +308,7 @@ if __name__ == "__main__":
                 "optimizer_state_dict": dis_optim.state_dict(),
                 "loss": loss_dis
             }, f"{pretrain_dir}/{epoch}_dis.pth")
+
 
     # testing mode selected
     elif model_mode == ModelMode.test:
